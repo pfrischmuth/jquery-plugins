@@ -135,7 +135,7 @@
 		});
 		if (mobileSafari) {
 			// Make the shade bigger so that it shadows the surface upon rotation
-			var l = Math.max(screen.width, screen.height) * (window.devicePixelRatio || 1) + Math.max(getScrollLeft(), getScrollTop()) + 100;
+			var l = Math.max(window.innerWidth, window.innerHeight) * (window.devicePixelRatio || 1) + Math.max(getScrollLeft(), getScrollTop()) + 100;
 			el.css({position: 'absolute'}).width(l).height(l);
 		}
 		else {
