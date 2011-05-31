@@ -31,7 +31,9 @@
 	$.fn.touchGallery.defaults = {
 		getSource: function() {
 			return this.href;
-		}
+		},
+		didShowCallback: function () {},
+		willHideCallback: function () {}
 	};
 	
 	// ==========================================================================================
@@ -47,7 +49,7 @@
 		var img = new Image();
 		img.onload = function() {
 			clickedThumb.activity(false);
-			showGallery(thumbs, thumbs.index(clickedThumb), this, opts.getSource);
+			showGallery(thumbs, thumbs.index(clickedThumb), this, opts);
 		};
 		img.src = $.proxy(opts.getSource, clickedThumb.get(0))();
 	}
@@ -55,7 +57,7 @@
 	/**
 	 * Creates DOM elements to actually show the gallery.
 	 */
-	function showGallery(thumbs, index, clickedImage, getSrcCallback) {
+	function showGallery(thumbs, index, clickedImage, opts) {
 		var viewport = fitToView(preventTouch($('<div id="galleryViewport">').css({
 			position: 'fixed',
 			top: 0,
@@ -70,7 +72,7 @@
 			left: (-index * getInnerWidth()) + 'px'
 		}).width(thumbs.length * getInnerWidth()).transform(false).appendTo(viewport);
 		
-		setupEventListeners(stripe, getInnerWidth(), index, thumbs.length-1);
+		setupEventListeners(stripe, getInnerWidth(), index, thumbs.length-1, opts);
 		
 		$(window).bind('orientationchange.gallery', function() {
 			fitToView(viewport);
@@ -93,12 +95,12 @@
 					stripe.addClass('ready');
 					loadSurroundingImages(index);
 				});
-				insertShade(viewport);
+				insertShade(viewport, opts.didShowCallback);
 			}
 			else {
 				page.activity({color: '#fff'});
 				var img = new Image();
-				var src = $.proxy(getSrcCallback, this)();
+				var src = $.proxy(opts.getSource, this)();
 				page.one('loadImage', function() {
 					img.src = src;
 				});
@@ -111,14 +113,16 @@
 		});
 	}
 	
-	function hideGallery(stripe) {
+	function hideGallery(stripe, opts) {
 		if (stripe.is('.ready') && !stripe.is('.panning')) {
+		    opts.willHideCallback();
+		    
 			$('#galleryShade').remove();
 			var page = stripe.find('.galleryPage').eq(stripe.data('galleryIndex'));
 			page.data('thumbs').removeClass('open');
 			var thumb = page.data('thumb');
 			stripe.add(window).add(document).unbind('.gallery');
-			zoomOut(page.find('img'), thumb, function() {
+			zoomOut(page.find('img'), thumb, opts, function() {
 				makeVisible(thumb).transform(false);
 				$('#galleryViewport').remove();
 			});
@@ -135,8 +139,9 @@
 		});
 		if (mobileSafari) {
 			// Make the shade bigger so that it shadows the surface upon rotation
+			//var l = Math.max(screen.width, screen.height) * (window.devicePixelRatio || 1) + Math.max(getScrollLeft(), getScrollTop()) + 100;
 			var l = Math.max(window.innerWidth, window.innerHeight) * (window.devicePixelRatio || 1) + Math.max(getScrollLeft(), getScrollTop()) + 100;
-			el.css({position: 'absolute'}).width(l).height(l);
+			el.css({position: 'fixed'}).width(l).height(l);
 		}
 		else {
 			el.css({position: 'fixed', width: '100%', height: '100%'});
@@ -197,13 +202,14 @@
 	 * to match the aspect of the small version. The wrapper div is appended to the body, as 
 	 * leaving it in place causes strange z-index/flickering issues.
 	 */
-	function zoomOut(large, small, onFinish) {
+	function zoomOut(large, small, opts, onFinish) {
 		if (large.length === 0 || !$.fn.transition.supported) {
 			if (onFinish) {
 				onFinish();
 			}
 			return;
 		}
+		
 		var b = bounds(large);
 		var t = bounds(small);
 		
@@ -265,7 +271,7 @@
 	/**
 	 * Registers event listeners to enable flicking through the images.
 	 */
-	function setupEventListeners(el, pageWidth, currentIndex, max) {
+	function setupEventListeners(el, pageWidth, currentIndex, max, opts) {
 		var scale = getViewportScale();
 		var xOffset = parseInt(el.css('left'), 10);
 		el.data('galleryIndex', currentIndex);
@@ -299,6 +305,8 @@
 			}
 			if (event.keyCode == 27 || event.keyCode == 32) {
 				el.trigger('close');
+			} else {
+			    return true; // Use the default action for this key.
 			}
 			return false;
 		});
@@ -347,7 +355,7 @@
 			flick(1);
 		})
 		.bind('click close', function() {
-			hideGallery(el);
+			hideGallery(el, opts);
 		});
 	}
 	
